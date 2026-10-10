@@ -12,6 +12,15 @@
 // Accelerate, vključuje pooling). Za razliko od Neona ne potrebuje
 // ločenega DIRECT_URL za `prisma db push`/`migrate` - Prisma Postgres to
 // podpira neposredno prek iste povezave.
+//
+// POMEMBNO o `prisma db push` v build skriptu (package.json): ker Vercel
+// build ni interaktiven, ima ukaz dodan `--accept-data-loss`, sicer bi
+// vsaka sprememba sheme, ki jo Prisma oceni kot tvegano (npr. nov @unique
+// stolpec), build trajno blokirala. To POMENI, da se tvegane spremembe
+// sheme ob vsakem deployu izvedejo samodejno, brez vmesne potrditve - pri
+// prihodnjih spremembah sheme, ki vplivajo na obstoječe podatke, je zato
+// treba pred pushem ročno preveriti (npr. prek /api/overview), da ne pride
+// do nehotene izgube podatkov.
 
 datasource db {
   provider = "postgresql"
