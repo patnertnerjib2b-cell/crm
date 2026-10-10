@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/auth";
 import { isContactStatus } from "@/types/contact";
+import { wouldCountTowardStats } from "@/lib/call-stats";
 
 // PATCH - posodobi kontakt. Če je podan `status`, se to šteje kot
 // "opravljen klic": status kontakta se posodobi IN ustvari se zapis v
@@ -58,6 +59,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Prijavljeni agent ne obstaja." }, { status: 404 });
   }
 
+  // Glej lib/call-stats.ts: na lestvici/pregledu šteje samo prvi CallLog za
+  // ta kontakt v celotni zgodovini. To moramo preveriti PRED ustvarjanjem
+  // novega CallLog zapisa spodaj (sicer bi ta novi zapis že bil "prvi").
+  // Sam CallLog zapis se VEDNO ustvari (zgodovina/"zadnji klic" ostaneta
+  // točna) - `countsTowardStats` samo pove odzivu, ali ta sprememba dodaja
+  // novo točko na lestvici ali gre le za popravek/napredovanje kontakta,
+  // ki je bil že enkrat klican.
+  const countsTowardStats = await wouldCountTowardStats(params.id);
+
   const [updatedContact] = await prisma.$transaction([
     prisma.contact.update({
       where: { id: params.id },
@@ -76,7 +86,11 @@ export async function PATCH(
     }),
   ]);
 
-  return NextResponse.json({ contact: updatedContact, loggedCall: true });
+  return NextResponse.json({
+    contact: updatedContact,
+    loggedCall: true,
+    countsTowardStats,
+  });
 }
 
 export async function DELETE(

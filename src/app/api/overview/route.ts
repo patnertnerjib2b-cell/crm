@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getWeekRange } from "@/lib/week";
+import { getCountingCallLogs } from "@/lib/call-stats";
 import { CONTACT_STATUSES, SUCCESS_STATUSES } from "@/types/contact";
 
 // Brez tega Next.js poskuša to pot (ker GET nima parametrov) statično
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { start, end } = getWeekRange();
 
-  const [totalContacts, statusCounts, totalAgents, activeAgents, weekLogs] =
+  const [totalContacts, statusCounts, totalAgents, activeAgents, countingLogs] =
     await Promise.all([
       prisma.contact.count(),
       Promise.all(
@@ -24,11 +25,12 @@ export async function GET() {
       ),
       prisma.agent.count(),
       prisma.agent.count({ where: { active: true } }),
-      prisma.callLog.findMany({
-        where: { createdAt: { gte: start, lt: end } },
-        select: { status: true },
-      }),
+      getCountingCallLogs(),
     ]);
+
+  // Glej lib/call-stats.ts: šteje se samo prvi CallLog na kontakt v celotni
+  // zgodovini, zato tu najprej filtriramo na teden in šele nato preštejemo.
+  const weekLogs = countingLogs.filter((l) => l.createdAt >= start && l.createdAt < end);
 
   const weekTotalCalls = weekLogs.length;
   const weekSuccessfulCalls = weekLogs.filter((l) =>

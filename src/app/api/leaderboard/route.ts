@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { addWeeks, formatWeekLabel, getWeekRange } from "@/lib/week";
+import { getCountingCallLogs } from "@/lib/call-stats";
 import { SUCCESS_STATUSES, type LeaderboardRow } from "@/types/contact";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -10,15 +13,16 @@ export async function GET(req: NextRequest) {
   const referenceDate = addWeeks(new Date(), weekOffset);
   const { start, end } = getWeekRange(referenceDate);
 
-  const [agents, logs] = await Promise.all([
+  const [agents, countingLogs] = await Promise.all([
     prisma.agent.findMany({
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
-    prisma.callLog.findMany({
-      where: { createdAt: { gte: start, lt: end } },
-      select: { agentId: true, status: true },
-    }),
+    getCountingCallLogs(),
   ]);
+
+  // Glej lib/call-stats.ts: šteje se samo prvi CallLog na kontakt v celotni
+  // zgodovini (ne glede na teden), zato tu najprej filtriramo na teden.
+  const logs = countingLogs.filter((l) => l.createdAt >= start && l.createdAt < end);
 
   const statsByAgent = new Map<string, { total: number; success: number }>();
   for (const agent of agents) {

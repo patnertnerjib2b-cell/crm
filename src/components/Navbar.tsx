@@ -7,7 +7,6 @@ import { fetchCurrentAgent, logoutCurrentAgent } from "@/lib/session-client";
 
 const LINKS = [
   { href: "/klici", label: "Klicanje" },
-  { href: "/koledar", label: "Koledar" },
   { href: "/lestvica", label: "Lestvica" },
   { href: "/admin", label: "Admin" },
 ];

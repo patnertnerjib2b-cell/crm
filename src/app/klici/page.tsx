@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
 import { fetchCurrentAgent, type SessionAgent } from "@/lib/session-client";
@@ -146,7 +147,11 @@ function KliciPageInner() {
             : c
         )
       );
-      setToast(`Klic zabeležen: ${STATUS_CONFIG[status].label} (+1 na lestvici)`);
+      setToast(
+        data.countsTowardStats
+          ? `Klic zabeležen: ${STATUS_CONFIG[status].label} (+1 na lestvici)`
+          : `Status posodobljen: ${STATUS_CONFIG[status].label} (kontakt je bil že klican, ne šteje ponovno)`
+      );
     } catch {
       setToast("Napaka pri shranjevanju. Poskusite znova.");
     } finally {
@@ -224,9 +229,17 @@ function KliciPageInner() {
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-ink">Klicanje</h1>
-          <span className="text-sm text-gray-500">
-            {contacts.length} {contacts.length === 1 ? "kontakt" : "kontaktov"}
-          </span>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/koledar"
+              className="rounded-full border border-[#d9dbd2] bg-white px-3 py-1.5 text-sm font-medium text-ink hover:bg-[#f4f5f0]"
+            >
+              📅 Koledar
+            </Link>
+            <span className="text-sm text-gray-500">
+              {contacts.length} {contacts.length === 1 ? "kontakt" : "kontaktov"}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[360px_1fr]">
