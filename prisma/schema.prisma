@@ -1,0 +1,66 @@
+// ONYX CRM - podatkovna shema
+//
+// Opomba glede statusov: SQLite ne podpira nativnih "enum" tipov v Prisma,
+// zato je `status` shranjen kot String z vrednostmi "NEW" | "NO_ANSWER" |
+// "INTERESTED" | "REJECTED" (glej src/types/contact.ts). Ko boste bazo
+// kasneje preselili na Postgres (npr. ob objavi na Vercel), lahko to polje
+// po želji spremenite v pravi `enum` - koda že povsod uporablja ta ista
+// string literal tipa, zato je migracija enostavna.
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neonov "pooled" (-pooler) connection string gre v DATABASE_URL - uporablja
+  // ga aplikacija med delovanjem. Za `prisma db push`/`migrate` (spremembe
+  // sheme) Prisma namesto tega uporabi DIRECT_URL (ne-pooled povezava), ker
+  // Neonov connection pooler ne podpira vseh operacij, ki jih spremembe
+  // sheme potrebujejo.
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Agent {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  callLogs CallLog[]
+
+  @@index([active])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  company   String?
+  phone     String?
+  email     String?
+  notes     String?
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  callLogs CallLog[]
+
+  @@index([status])
+}
+
+model CallLog {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId   String
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([agentId, createdAt])
+  @@index([contactId])
+}
