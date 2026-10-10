@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db";
 import { getWeekRange } from "@/lib/week";
 import { CONTACT_STATUSES, SUCCESS_STATUSES } from "@/types/contact";
 
+// Brez tega Next.js poskuša to pot (ker GET nima parametrov) statično
+// predizračunati že ob `next build`, kar na Vercelu spodleti, saj baza med
+// buildom še ni dosegljiva/napolnjena na enak način kot med delovanjem.
+export const dynamic = "force-dynamic";
+
 // Splošna statistika za admin nadzorno ploščo: stanje baze kontaktov po
 // statusih, število agentov in skupno število klicev v tekočem tednu.
 export async function GET() {

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+// Glej komentar v src/app/api/overview/route.ts - enak razlog.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const agents = await prisma.agent.findMany({
     orderBy: [{ active: "desc" }, { firstName: "asc" }, { lastName: "asc" }],
