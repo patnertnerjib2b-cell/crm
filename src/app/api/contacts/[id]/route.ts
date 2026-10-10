@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSessionFromRequest } from "@/lib/auth";
 import { isContactStatus } from "@/types/contact";
 
 // PATCH - posodobi kontakt. Če je podan `status`, se to šteje kot
@@ -7,19 +8,27 @@ import { isContactStatus } from "@/types/contact";
 // CallLog, kar se avtomatsko prišteje agentovemu tedenskemu rezultatu na
 // leaderboardu. Če je podan samo `note` (brez statusa), gre zgolj za
 // shranjevanje opombe in se klic NE šteje.
+//
+// Agent, ki se mu klic prišteje, se vedno izpelje iz prijavljene seje
+// (piškotek), NE iz telesa zahteve - tako ni mogoče s poseganjem v klic
+// (npr. prek orodij razvijalca) klic prištet drugemu agentu.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const session = getSessionFromRequest(req);
+  if (!session) {
+    return NextResponse.json({ error: "Potrebna je prijava." }, { status: 401 });
+  }
+
   const body = await req.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Neveljavno telo zahteve." }, { status: 400 });
   }
 
-  const { status, note, agentId } = body as {
+  const { status, note } = body as {
     status?: string;
     note?: string;
-    agentId?: string;
   };
 
   const contact = await prisma.contact.findUnique({ where: { id: params.id } });
@@ -39,20 +48,14 @@ export async function PATCH(
     return NextResponse.json({ contact: updated, loggedCall: false });
   }
 
-  // Sprememba statusa = opravljen klic -> potrebujemo agenta.
+  // Sprememba statusa = opravljen klic -> potrebujemo agenta iz seje.
   if (!isContactStatus(status)) {
     return NextResponse.json({ error: "Neveljaven status." }, { status: 400 });
   }
-  if (!agentId) {
-    return NextResponse.json(
-      { error: "Za beleženje klica je potreben izbran agent." },
-      { status: 400 }
-    );
-  }
 
-  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+  const agent = await prisma.agent.findUnique({ where: { id: session.agentId } });
   if (!agent) {
-    return NextResponse.json({ error: "Izbrani agent ne obstaja." }, { status: 404 });
+    return NextResponse.json({ error: "Prijavljeni agent ne obstaja." }, { status: 404 });
   }
 
   const [updatedContact] = await prisma.$transaction([
@@ -66,7 +69,7 @@ export async function PATCH(
     prisma.callLog.create({
       data: {
         contactId: params.id,
-        agentId,
+        agentId: agent.id,
         status,
         note: typeof note === "string" ? note : null,
       },

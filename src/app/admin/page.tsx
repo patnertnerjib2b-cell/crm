@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ImportDropzone from "@/components/ImportDropzone";
 import AgentManager from "@/components/AgentManager";
 import ContactsTable from "@/components/ContactsTable";
 import OverviewStats from "@/components/OverviewStats";
+import { fetchCurrentAgent } from "@/lib/session-client";
 
 const TABS = [
   { id: "pregled", label: "📊 Pregled" },
@@ -17,12 +19,30 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function AdminPage() {
+  const router = useRouter();
+  const [allowed, setAllowed] = useState(false);
   const [tab, setTab] = useState<TabId>("pregled");
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    fetchCurrentAgent().then((agent) => {
+      if (!agent) {
+        router.replace("/");
+        return;
+      }
+      if (!agent.isAdmin) {
+        router.replace("/klici");
+        return;
+      }
+      setAllowed(true);
+    });
+  }, [router]);
 
   function bump() {
     setRefreshKey((k) => k + 1);
   }
+
+  if (!allowed) return null;
 
   return (
     <div className="min-h-screen bg-[#f4f5f0]">

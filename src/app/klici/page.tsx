@@ -1,38 +1,59 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/StatusBadge";
-import { getAgentFromCookie } from "@/lib/agent-cookie";
+import { fetchCurrentAgent, type SessionAgent } from "@/lib/session-client";
 import {
   CONTACT_STATUSES,
   STATUS_CONFIG,
   type ContactDTO,
   type ContactStatus,
+  type MeetingDTO,
 } from "@/types/contact";
 
 type StatusFilter = "ALL" | ContactStatus;
 
 export default function KliciPage() {
+  return (
+    <Suspense fallback={null}>
+      <KliciPageInner />
+    </Suspense>
+  );
+}
+
+function KliciPageInner() {
   const router = useRouter();
-  const [agent, setAgent] = useState<{ id: string; name: string } | null>(null);
+  const searchParams = useSearchParams();
+  const initialContactId = searchParams.get("contactId");
+
+  const [agent, setAgent] = useState<SessionAgent | null>(null);
   const [contacts, setContacts] = useState<ContactDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialContactId);
   const [noteDraft, setNoteDraft] = useState("");
   const [saving, setSaving] = useState<ContactStatus | "note" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Sestanki za izbrani kontakt
+  const [meetings, setMeetings] = useState<MeetingDTO[]>([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(false);
+  const [meetingDate, setMeetingDate] = useState("");
+  const [meetingNote, setMeetingNote] = useState("");
+  const [savingMeeting, setSavingMeeting] = useState(false);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+
   useEffect(() => {
-    const a = getAgentFromCookie();
-    if (!a) {
-      router.replace("/");
-      return;
-    }
-    setAgent(a);
+    fetchCurrentAgent().then((a) => {
+      if (!a) {
+        router.replace("/");
+        return;
+      }
+      setAgent(a);
+    });
   }, [router]);
 
   const loadContacts = useCallback(async () => {
@@ -71,6 +92,28 @@ export default function KliciPage() {
     setNoteDraft(selected?.notes ?? "");
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadMeetings = useCallback(async (contactId: string) => {
+    setMeetingsLoading(true);
+    try {
+      const res = await fetch(`/api/meetings?contactId=${contactId}`);
+      const data = await res.json();
+      setMeetings(data.meetings ?? []);
+    } finally {
+      setMeetingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setMeetingError(null);
+    setMeetingDate("");
+    setMeetingNote("");
+    if (selected) {
+      loadMeetings(selected.id);
+    } else {
+      setMeetings([]);
+    }
+  }, [selected?.id, loadMeetings]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2500);
@@ -84,7 +127,7 @@ export default function KliciPage() {
       const res = await fetch(`/api/contacts/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, note: noteDraft, agentId: agent.id }),
+        body: JSON.stringify({ status, note: noteDraft }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -95,7 +138,7 @@ export default function KliciPage() {
                 ...c,
                 ...data.contact,
                 lastCall: {
-                  agentName: agent.name,
+                  agentName: `${agent.firstName} ${agent.lastName}`.trim(),
                   status,
                   createdAt: new Date().toISOString(),
                 },
@@ -131,6 +174,46 @@ export default function KliciPage() {
     } finally {
       setSaving(null);
     }
+  }
+
+  async function addMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    if (!meetingDate) {
+      setMeetingError("Izberite datum in čas sestanka.");
+      return;
+    }
+    setSavingMeeting(true);
+    setMeetingError(null);
+    try {
+      const res = await fetch("/api/meetings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId: selected.id,
+          startAt: new Date(meetingDate).toISOString(),
+          note: meetingNote,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Napaka pri shranjevanju.");
+      setMeetings((prev) =>
+        [...prev, data.meeting].sort((a, b) => a.startAt.localeCompare(b.startAt))
+      );
+      setMeetingDate("");
+      setMeetingNote("");
+      setToast("Sestanek dodan v koledar.");
+    } catch (err) {
+      setMeetingError(err instanceof Error ? err.message : "Napaka pri shranjevanju.");
+    } finally {
+      setSavingMeeting(false);
+    }
+  }
+
+  async function removeMeeting(id: string) {
+    if (!confirm("Izbrisati sestanek?")) return;
+    await fetch(`/api/meetings/${id}`, { method: "DELETE" });
+    setMeetings((prev) => prev.filter((m) => m.id !== id));
   }
 
   if (!agent) return null;
@@ -259,7 +342,7 @@ export default function KliciPage() {
                   <p className="mb-2 text-sm font-semibold text-ink">
                     Status klica (samodejno se prišteje na lestvico)
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {CONTACT_STATUSES.map((s) => (
                       <button
                         key={s}
@@ -297,6 +380,85 @@ export default function KliciPage() {
                       {saving === "note" ? "Shranjujem …" : "Shrani opombo (brez klica)"}
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-6 border-t border-[#eceee6] pt-5">
+                  <p className="mb-2 text-sm font-semibold text-ink">📅 Sestanki</p>
+
+                  {meetingsLoading && (
+                    <p className="text-sm text-gray-400">Nalaganje …</p>
+                  )}
+                  {!meetingsLoading && meetings.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      Za ta kontakt še ni vpisanih sestankov.
+                    </p>
+                  )}
+                  {!meetingsLoading && meetings.length > 0 && (
+                    <ul className="mb-3 divide-y divide-[#eceee6]">
+                      {meetings.map((m) => (
+                        <li
+                          key={m.id}
+                          className="flex items-center justify-between gap-2 py-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium text-ink">
+                              {new Date(m.startAt).toLocaleString("sl-SI", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                            {m.note && (
+                              <span className="ml-2 text-xs text-gray-500">{m.note}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeMeeting(m.id)}
+                            className="rounded-full border border-red-200 px-2.5 py-0.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Izbriši
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <form
+                    onSubmit={addMeeting}
+                    className="flex flex-wrap items-end gap-2 rounded-xl border border-[#eceee6] bg-[#f9faf6] p-3"
+                  >
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500">
+                        Datum in čas
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={meetingDate}
+                        onChange={(e) => setMeetingDate(e.target.value)}
+                        className="mt-1 rounded-lg border border-[#d9dbd2] px-3 py-1.5 text-sm outline-none focus:border-ink"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500">
+                        Opomba (neobvezno)
+                      </label>
+                      <input
+                        value={meetingNote}
+                        onChange={(e) => setMeetingNote(e.target.value)}
+                        placeholder="Npr. sestanek na sedežu podjetja"
+                        className="mt-1 w-full rounded-lg border border-[#d9dbd2] px-3 py-1.5 text-sm outline-none focus:border-ink"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={savingMeeting}
+                      className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+                    >
+                      {savingMeeting ? "Dodajam …" : "+ Dodaj sestanek"}
+                    </button>
+                  </form>
+                  {meetingError && (
+                    <p className="mt-2 text-sm text-red-600">{meetingError}</p>
+                  )}
                 </div>
               </div>
             )}

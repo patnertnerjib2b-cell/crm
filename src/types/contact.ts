@@ -6,6 +6,7 @@ export const CONTACT_STATUSES = [
   "NEW",
   "NO_ANSWER",
   "INTERESTED",
+  "OFFER_SENT",
   "REJECTED",
 ] as const;
 
@@ -51,6 +52,14 @@ export const STATUS_CONFIG: Record<ContactStatus, StatusConfig> = {
     buttonClass:
       "bg-green-50 text-green-800 hover:bg-green-100 border-green-300",
   },
+  OFFER_SENT: {
+    label: "Poslana ponudba",
+    shortLabel: "Ponudba",
+    icon: "🔵",
+    dotClass: "bg-blue-500",
+    badgeClass: "bg-blue-100 text-blue-800",
+    buttonClass: "bg-blue-50 text-blue-800 hover:bg-blue-100 border-blue-300",
+  },
   REJECTED: {
     label: "Zavrnil",
     shortLabel: "Zavrnil",
@@ -62,12 +71,14 @@ export const STATUS_CONFIG: Record<ContactStatus, StatusConfig> = {
 };
 
 // Kateri statusi na leaderboardu štejejo kot "uspešen klic"
-export const SUCCESS_STATUSES: ContactStatus[] = ["INTERESTED"];
+export const SUCCESS_STATUSES: ContactStatus[] = ["INTERESTED", "OFFER_SENT"];
 
 export interface AgentDTO {
   id: string;
   firstName: string;
   lastName: string;
+  username: string;
+  isAdmin: boolean;
   active: boolean;
 }
 
@@ -95,4 +106,22 @@ export interface LeaderboardRow {
   totalCalls: number;
   successfulCalls: number;
   rank: number;
+}
+
+export interface MeetingDTO {
+  id: string;
+  startAt: string;
+  note: string | null;
+  contact: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    company: string | null;
+    phone: string | null;
+  };
+  agent: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
 }

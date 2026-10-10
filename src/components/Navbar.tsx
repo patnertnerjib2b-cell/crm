@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearAgentCookie, getAgentFromCookie } from "@/lib/agent-cookie";
+import { fetchCurrentAgent, logoutCurrentAgent } from "@/lib/session-client";
 
 const LINKS = [
   { href: "/klici", label: "Klicanje" },
+  { href: "/koledar", label: "Koledar" },
   { href: "/lestvica", label: "Lestvica" },
   { href: "/admin", label: "Admin" },
 ];
@@ -17,12 +18,20 @@ export default function Navbar() {
   const [agentName, setAgentName] = useState<string | null>(null);
 
   useEffect(() => {
-    setAgentName(getAgentFromCookie()?.name ?? null);
+    let active = true;
+    fetchCurrentAgent().then((agent) => {
+      if (!active) return;
+      setAgentName(agent ? `${agent.firstName} ${agent.lastName}`.trim() : null);
+    });
+    return () => {
+      active = false;
+    };
   }, [pathname]);
 
-  function handleSwitch() {
-    clearAgentCookie();
+  async function handleLogout() {
+    await logoutCurrentAgent();
     router.push("/");
+    router.refresh();
   }
 
   return (
@@ -59,10 +68,10 @@ export default function Navbar() {
             </span>
           )}
           <button
-            onClick={handleSwitch}
+            onClick={handleLogout}
             className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-white/10"
           >
-            Zamenjaj agenta
+            Odjava
           </button>
         </div>
       </div>

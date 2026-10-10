@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
-import { getAgentFromCookie } from "@/lib/agent-cookie";
+import { fetchCurrentAgent } from "@/lib/session-client";
 import type { LeaderboardRow } from "@/types/contact";
 
 interface LeaderboardResponse {
@@ -21,7 +21,7 @@ export default function LestvicaPage() {
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentAgentId(getAgentFromCookie()?.id ?? null);
+    fetchCurrentAgent().then((agent) => setCurrentAgentId(agent?.id ?? null));
   }, []);
 
   const load = useCallback(async () => {
