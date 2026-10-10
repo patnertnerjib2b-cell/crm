@@ -6,16 +6,16 @@
 // kasneje preselili na Postgres (npr. ob objavi na Vercel), lahko to polje
 // po želji spremenite v pravi `enum` - koda že povsod uporablja ta ista
 // string literal tipa, zato je migracija enostavna.
+//
+// Baza: Vercel "Prisma Postgres" integracija (dodana ob uvozu projekta)
+// sama nastavi DATABASE_URL (prisma+postgres:// povezava prek Prisma
+// Accelerate, vključuje pooling). Za razliko od Neona ne potrebuje
+// ločenega DIRECT_URL za `prisma db push`/`migrate` - Prisma Postgres to
+// podpira neposredno prek iste povezave.
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  // Neonov "pooled" (-pooler) connection string gre v DATABASE_URL - uporablja
-  // ga aplikacija med delovanjem. Za `prisma db push`/`migrate` (spremembe
-  // sheme) Prisma namesto tega uporabi DIRECT_URL (ne-pooled povezava), ker
-  // Neonov connection pooler ne podpira vseh operacij, ki jih spremembe
-  // sheme potrebujejo.
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
