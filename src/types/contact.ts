@@ -77,7 +77,9 @@ export interface AgentDTO {
   id: string;
   firstName: string;
   lastName: string;
-  username: string;
+  // Null pri starih zapisih, ustvarjenih pred uvedbo prijave z geslom -
+  // taki agenti se ne morejo prijaviti, dokler jim admin ne nastavi obeh.
+  username: string | null;
   isAdmin: boolean;
   active: boolean;
 }

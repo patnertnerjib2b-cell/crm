@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
 
   const agent = await prisma.agent.findUnique({ where: { username } });
-  if (!agent || !agent.active) {
+  if (!agent || !agent.active || !agent.passwordHash) {
     return NextResponse.json(
       { error: "Napačno uporabniško ime ali geslo." },
       { status: 401 }

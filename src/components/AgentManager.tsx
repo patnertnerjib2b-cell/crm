@@ -203,7 +203,9 @@ export default function AgentManager() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-gray-400">@{agent.username}</span>
+                <span className="text-xs text-gray-400">
+                  {agent.username ? `@${agent.username}` : "brez prijave – dodelite uporabniško ime"}
+                </span>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
