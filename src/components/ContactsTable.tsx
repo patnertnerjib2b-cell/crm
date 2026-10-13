@@ -14,6 +14,7 @@ export default function ContactsTable({ refreshKey }: { refreshKey?: number }) {
     try {
       const params = new URLSearchParams();
       if (q.trim()) params.set("q", q.trim());
+      params.set("all", "1");
       const res = await fetch(`/api/contacts?${params.toString()}`);
       const data = await res.json();
       setContacts(data.contacts ?? []);
@@ -60,20 +61,21 @@ export default function ContactsTable({ refreshKey }: { refreshKey?: number }) {
               <th className="px-3 py-2">Telefon</th>
               <th className="px-3 py-2">E-pošta</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Agent</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-[#eceee6]">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-gray-400">
+                <td colSpan={7} className="px-3 py-6 text-center text-gray-400">
                   Nalaganje …
                 </td>
               </tr>
             )}
             {!loading && contacts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-gray-400">
+                <td colSpan={7} className="px-3 py-6 text-center text-gray-400">
                   Ni kontaktov. Uvozite jih v zavihku &quot;Uvoz&quot;.
                 </td>
               </tr>
@@ -88,6 +90,11 @@ export default function ContactsTable({ refreshKey }: { refreshKey?: number }) {
                 <td className="px-3 py-2 text-gray-600">{c.email || "—"}</td>
                 <td className="px-3 py-2">
                   <StatusBadge status={c.status} />
+                </td>
+                <td className="px-3 py-2 text-gray-600">
+                  {c.assignedAgentName || (
+                    <span className="text-gray-400">ni dodeljen</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button

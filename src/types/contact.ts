@@ -95,6 +95,12 @@ export interface ContactDTO {
   status: ContactStatus;
   createdAt: string;
   updatedAt: string;
+  // Kateremu agentu je kontakt dodeljen (njegov osebni seznam za klicanje).
+  // Null, dokler ga admin ne dodeli. Ime je tu zaradi admin pregleda vseh
+  // kontaktov (ContactsTable) - navaden agent v svojem seznamu vedno vidi
+  // samo svoje, zato mu polja ni treba prikazovati.
+  assignedAgentId: string | null;
+  assignedAgentName?: string | null;
   lastCall?: {
     agentName: string;
     status: ContactStatus;

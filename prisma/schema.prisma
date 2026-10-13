@@ -48,6 +48,7 @@ model Agent {
 
   callLogs CallLog[]
   meetings Meeting[]
+  assignedContacts Contact[] @relation("AssignedAgent")
 
   @@index([active])
 }
@@ -64,10 +65,19 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Kateremu agentu je ta kontakt dodeljen (njegov osebni seznam za
+  // klicanje). Neobvezno (String?), da star uvoz brez dodelitve ne
+  // podre ničesar - taki kontakti preprosto niso v nobenem osebnem
+  // seznamu, dokler jih admin ne dodeli. `onDelete: SetNull`, da izbris
+  // agenta ne izbriše tudi kontaktov, le sprosti dodelitev.
+  assignedAgent   Agent?  @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  assignedAgentId String?
+
   callLogs CallLog[]
   meetings Meeting[]
 
   @@index([status])
+  @@index([assignedAgentId])
 }
 
 // Sestanki, ki jih agenti vpisujejo za posamezne kontakte ("koledar").
