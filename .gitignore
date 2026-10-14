@@ -18,3 +18,4 @@ prisma/dev.db-journal
 .DS_Store
 *.log
 npm-debug.log*
+tsconfig.tsbuildinfo
