@@ -9,6 +9,11 @@ export const dynamic = "force-dynamic";
 // agentu (njegov osebni seznam za klicanje). Uporabljeno predvsem
 // enkratno, retroaktivno - za kontakte, uvožene PRED uvedbo dodeljevanja
 // po agentih.
+//
+// `unassign: true` namesto `agentId` sprosti dodelitev (assignedAgentId
+// -> null) za podan seznam contactIds, ne da bi jih izbrisali - kontakti
+// ostanejo v bazi (vidni v Admin -> Baza kontaktov kot "ni dodeljen") in
+// jih lahko kasneje dodelimo drugemu agentu ali ponovno pregledamo.
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
   if (!session?.isAdmin) {
@@ -16,25 +21,28 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null);
+  const unassign = body?.unassign === true;
   const agentId = (body?.agentId ?? "").toString().trim();
   const contactIds = Array.isArray(body?.contactIds) ? (body.contactIds as string[]) : [];
 
-  if (!agentId || contactIds.length === 0) {
+  if (contactIds.length === 0 || (!unassign && !agentId)) {
     return NextResponse.json(
-      { error: "Potrebna sta agentId in neprazen seznam contactIds." },
+      { error: "Potreben je neprazen seznam contactIds in agentId (ali unassign: true)." },
       { status: 400 }
     );
   }
 
-  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
-  if (!agent) {
-    return NextResponse.json({ error: "Agent ne obstaja." }, { status: 400 });
+  if (!unassign) {
+    const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+    if (!agent) {
+      return NextResponse.json({ error: "Agent ne obstaja." }, { status: 400 });
+    }
   }
 
   const result = await prisma.contact.updateMany({
     where: { id: { in: contactIds } },
-    data: { assignedAgentId: agentId },
+    data: { assignedAgentId: unassign ? null : agentId },
   });
 
-  return NextResponse.json({ assigned: result.count });
+  return NextResponse.json({ assigned: result.count, unassigned: unassign });
 }
